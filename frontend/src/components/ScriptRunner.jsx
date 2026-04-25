@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchApi } from '../utils/api';
+import { fetchApi, API_URL } from '../utils/api';
 import { useLang } from '../context/LangContext.jsx';
 
 export default function ScriptRunner({ preselectedScript, output, setOutput, diff, setDiff, onClear }) {
@@ -40,10 +40,62 @@ export default function ScriptRunner({ preselectedScript, output, setOutput, dif
       
       // 2. Run Script
       setOutput(`$ ${actualCommand}\nRunning (backend may inject --yolo and --policy for gemini)...\n`);
-      const res = await fetchApi('/scripts/run', {
+      
+      const response = await fetch(`${API_URL}/scripts/run/stream`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(localStorage.getItem('wiki_credentials') ? { 'Authorization': `Basic ${localStorage.getItem('wiki_credentials')}` } : {})
+        },
         body: JSON.stringify({ command: actualCommand })
       });
+
+      if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+      
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let displayCmd = actualCommand;
+      let buffer = '';
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        
+        let splitIdx;
+        while ((splitIdx = buffer.indexOf('\n\n')) !== -1) {
+          const chunkStr = buffer.substring(0, splitIdx);
+          buffer = buffer.substring(splitIdx + 2);
+          
+          if (chunkStr.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(chunkStr.substring(6));
+              if (data.type === 'meta') {
+                displayCmd = data.actual_command;
+                setOutput(`$ ${displayCmd}\n\n`);
+              } else if (data.type === 'stdout') {
+                setOutput(prev => {
+                  let chunk = data.data;
+                  // Strip ANSI escape codes to prevent gibberish
+                  // eslint-disable-next-line no-control-regex
+                  chunk = chunk.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+                  
+                  // PTY often outputs \r\n for newlines, which causes issues if we treat \r as carriage return.
+                  // Let's just remove \r so it acts as a normal newline.
+                  chunk = chunk.replace(/\r/g, '');
+                  
+                  return prev + chunk;
+                });
+              } else if (data.type === 'end') {
+                setOutput(prev => prev + `\n\nExit Code: ${data.returncode}`);
+              }
+            } catch(e) {
+              console.error("Parse error for chunk:", chunkStr, e);
+            }
+          }
+        }
+      }
       
       // 3. Capture Post-Stats
       const postStats = await fetchApi('/wiki/health');
@@ -61,8 +113,6 @@ export default function ScriptRunner({ preselectedScript, output, setOutput, dif
       ].filter(d => d.before !== d.after);
       
       setDiff(diffs);
-      const displayCmd = res.actual_command || actualCommand;
-      setOutput(`$ ${displayCmd}\n\n[STDOUT]\n${res.stdout}\n[STDERR]\n${res.stderr}\n\nExit Code: ${res.returncode}`);
       
     } catch (e) {
       setOutput(`Error: ${e.message}`);

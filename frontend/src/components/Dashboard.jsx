@@ -8,6 +8,7 @@ export default function Dashboard({ navigateToScript }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedLog, setSelectedLog] = useState(null);
 
   const loadStats = async (isManualRefresh = false) => {
     if (isManualRefresh) setRefreshing(true);
@@ -170,7 +171,7 @@ export default function Dashboard({ navigateToScript }) {
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '12px' }}>
               <strong>{td.cards.guide}:</strong> {td.cards.orphansGuide}
             </p>
-            <button className="btn btn-primary" onClick={() => navigateToScript('python 400_System_Kernel/410_Skills/lint.py')} style={{ width: '100%' }}>
+            <button className="btn btn-primary" onClick={() => navigateToScript('gemini -p "分析 200_Wiki_Graph，修复孤立节点的引用"')} style={{ width: '100%' }}>
               {td.cards.orphansAction}
             </button>
           </div>
@@ -183,7 +184,7 @@ export default function Dashboard({ navigateToScript }) {
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '12px' }}>
               <strong>{td.cards.guide}:</strong> {td.cards.brokenSchemaGuide}
             </p>
-            <button className="btn btn-primary" onClick={() => navigateToScript('python 400_System_Kernel/410_Skills/lint.py')} style={{ width: '100%' }}>
+            <button className="btn btn-primary" onClick={() => navigateToScript('gemini -p "根据 UNIFIED_STANDARD.md 修复不合规的 YAML Frontmatter"')} style={{ width: '100%' }}>
               {td.cards.brokenSchemaAction}
             </button>
           </div>
@@ -200,7 +201,7 @@ export default function Dashboard({ navigateToScript }) {
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '12px' }}>
               <strong>{td.cards.guide}:</strong> {td.cards.strayFilesGuide}
             </p>
-            <button className="btn btn-primary" onClick={() => navigateToScript('python 400_System_Kernel/410_Skills/lint.py')} style={{ width: '100%' }}>
+            <button className="btn btn-primary" onClick={() => navigateToScript('gemini -p "清理根目录的游离文件，将其移动到 000_Intake/090_Manual_Inbox"')} style={{ width: '100%' }}>
               {td.cards.strayFilesAction}
             </button>
           </div>
@@ -213,6 +214,40 @@ export default function Dashboard({ navigateToScript }) {
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '12px' }}>
               <strong>{td.cards.info}:</strong> {td.cards.archivedMemoryInfo}
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Pillar D: Architecture & Structure */}
+      <h3 style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>{td.sections.structure}</h3>
+      <div className="grid" style={{ marginBottom: '32px' }}>
+        <div className="card glass" style={{ borderLeft: `4px solid ${stats.structure_issues?.length > 0 ? 'var(--danger)' : 'var(--success)'}`, display: 'flex', flexDirection: 'column' }}>
+          <h3>{td.cards.structureIssues}</h3>
+          <p style={{ fontSize: '2.5rem', fontWeight: 'bold', color: stats.structure_issues?.length > 0 ? 'var(--danger)' : 'var(--success)' }}>
+            {stats.structure_issues?.length || 0}
+          </p>
+          <div style={{ marginTop: 'auto', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '12px' }}>
+              <strong>{td.cards.guide}:</strong> {td.cards.structureGuide}
+            </p>
+            {stats.structure_issues?.length > 0 ? (
+              <>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '0.85rem', color: 'var(--danger)', marginBottom: '12px' }}>
+                  {stats.structure_issues.map((issue, idx) => (
+                    <li key={idx} style={{ marginBottom: '4px' }}>- {issue.description}</li>
+                  ))}
+                </ul>
+                <button 
+                    className="btn btn-primary" 
+                    onClick={() => navigateToScript('gemini -p "按照 400_System_Kernel/420_Schemas/UNIFIED_STANDARD.md 规范，移动、重命名或重构这些结构异常的文件夹和文件，修复所有游离目录"')}
+                    style={{ width: '100%' }}
+                  >
+                    {td.cards.structureAction}
+                  </button>
+              </>
+            ) : (
+              <p style={{ color: 'var(--success)', fontSize: '0.85rem', margin: 0 }}>{td.cards.noStructureIssues}</p>
+            )}
           </div>
         </div>
       </div>
@@ -262,7 +297,13 @@ export default function Dashboard({ navigateToScript }) {
             </thead>
             <tbody>
               {stats.latest_executions.map(exec => (
-                <tr key={exec.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                <tr 
+                  key={exec.id} 
+                  style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.2s' }}
+                  onClick={() => setSelectedLog(exec)}
+                  onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                  onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                >
                   <td style={{ padding: '8px', fontFamily: 'monospace', fontSize: '0.9rem' }}>{exec.command}</td>
                   <td style={{ padding: '8px', color: exec.status === 'success' ? 'var(--success)' : (exec.status === 'failed' ? 'var(--danger)' : 'var(--warning)') }}>
                     {exec.status.toUpperCase()}
@@ -279,6 +320,41 @@ export default function Dashboard({ navigateToScript }) {
           </table>
         </div>
       </div>
+
+      {/* Log Modal */}
+      {selectedLog && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+          background: 'rgba(0,0,0,0.7)', zIndex: 1000,
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          padding: '20px'
+        }} onClick={() => setSelectedLog(null)}>
+          <div 
+            className="card glass" 
+            style={{ width: '100%', maxWidth: '800px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
+              <h3 style={{ margin: 0 }}>Execution Logs</h3>
+              <button className="btn" onClick={() => setSelectedLog(null)}>Close</button>
+            </div>
+            
+            <div style={{ marginBottom: '16px' }}>
+              <strong>Command:</strong> <span style={{ fontFamily: 'monospace', color: 'var(--accent)' }}>{selectedLog.command}</span><br/>
+              <strong>Status:</strong> <span style={{ color: selectedLog.status === 'success' ? 'var(--success)' : 'var(--danger)' }}>{selectedLog.status.toUpperCase()}</span><br/>
+              <strong>Time:</strong> {new Date(selectedLog.start_time + 'Z').toLocaleString()}
+            </div>
+            
+            <div style={{ 
+              background: '#0f172a', padding: '16px', borderRadius: '8px', 
+              fontFamily: 'monospace', fontSize: '0.85rem', color: '#e2e8f0',
+              overflowY: 'auto', flex: 1, whiteSpace: 'pre-wrap'
+            }}>
+              {selectedLog.output || 'No output available.'}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
