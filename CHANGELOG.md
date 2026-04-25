@@ -1,5 +1,20 @@
 # Wiki Management System Changelog
 
+## [2.3.0] - 2026-04-25
+### Added
+- **Bilingual UI (EN / 中文)**: Full i18n support across Dashboard, Script Runner, Git Manager. Language preference persisted in `localStorage`. Toggle buttons in sidebar.
+- **i18n Architecture**: Created `frontend/src/i18n.js` (translations) + `frontend/src/context/LangContext.jsx` (React Context provider).
+
+### Fixed
+- **Gemini `--yolo` Auto-Inject**: Backend `scripts.py` now auto-appends `--yolo` to all Gemini CLI commands, preventing them from being silently blocked in Plan Mode.
+- **Actual Command Display**: Backend returns `actual_command` in run response so the frontend shows the full command (with injected flags) in the terminal output.
+- **Script Runner Output Persistence**: Lifted `output` and `diff` state to `App.jsx` so switching tabs no longer clears the terminal content. Added explicit **Clear Output** button.
+- **Knowledge Contradictions Button**: Changed button from near-invisible transparent style to `btn-primary` for consistent visibility.
+- **Git Log Full Timestamp**: Changed `--date=short` to `--date=format:%Y-%m-%d %H:%M` in `git.py`. Author and datetime now displayed in separate columns.
+- **Wiki Health README Exemption**: Extended `exempt_files` filter to Wiki Graph scan loop, fixing false-positive `broken_yaml_count` from subfolder `README.md` files.
+
+---
+
 ## [2.1.0] - 2026-04-25
 ### Added
 - **Conceptual Script Naming**: Mapped raw Python paths to intuitive LLM Wiki philosophy names (e.g., Cognitive Ingestor, Wiki Sanitizer).
